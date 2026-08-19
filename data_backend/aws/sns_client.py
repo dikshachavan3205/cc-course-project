@@ -1,0 +1,1 @@
+"""Publish migration alerts."""

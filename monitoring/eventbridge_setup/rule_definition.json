@@ -1,0 +1,7 @@
+{
+  "Name": "chrononet-spot-interruption-rule",
+  "EventPattern": {
+    "source": ["aws.ec2"],
+    "detail-type": ["EC2 Spot Instance Interruption Warning"]
+  }
+}
