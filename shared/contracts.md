@@ -1,10 +1,7 @@
-# Shared Contracts
-
-Agree on these 3 formats BEFORE writing integration code:
-
 ## 1. Checkpoint JSON (written to S3)
 ```json
 {
+  "run_id": "string",
   "vm_id": "string",
   "last_processed_index": 0,
   "timestamp": "ISO8601"
@@ -14,6 +11,7 @@ Agree on these 3 formats BEFORE writing integration code:
 ## 2. API response shape (GET /status)
 ```json
 {
+  "run_id": "string",
   "vm_id": "string",
   "region": "string",
   "cpu_percent": 0,
@@ -27,6 +25,7 @@ Agree on these 3 formats BEFORE writing integration code:
 ## 3. Risk event JSON (Predictor -> Orchestrator)
 ```json
 {
+  "run_id": "string",
   "vm_id": "string",
   "risk_percent": 0,
   "threshold_exceeded": false,

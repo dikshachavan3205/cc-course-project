@@ -7,3 +7,4 @@ venv/
 *.log
 prediction/model/*.pkl
 testing/test_results/run_logs/*
+app/checkpoints/
