@@ -7,3 +7,6 @@ AI-Driven Predictive Spot VM Migration Framework.
 2. Each module (`app/`, `orchestration/`, `monitoring/`, `prediction/`, `data_backend/`, `dashboard/`) has its own `requirements.txt` / `package.json`.
 3. See `docs/execution_guide.md` for the full build order.
 4. See `shared/contracts.md` before writing any code that crosses module boundaries.
+
+## Progress Log
+- Phase 1 complete: workload app with checkpoint/resume, Dockerized and tested locally.
