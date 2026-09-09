@@ -1,0 +1,1 @@
+["cpu_percent", "ram_percent", "network_mbps", "instance_age_minutes", "price_volatility", "price_trend_ratio", "savings_percent", "instance_type_m5.large", "instance_type_m5.xlarge", "instance_type_t2.medium", "instance_type_t2.micro", "instance_type_t2.small", "instance_type_t3.medium", "instance_type_t3.micro", "instance_type_t3.small"]
