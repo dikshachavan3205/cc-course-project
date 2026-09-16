@@ -32,3 +32,21 @@
   "timestamp": "ISO8601"
 }
 ```
+
+## 4. SNS alert JSON (published to chrononet-alerts on migration completion)
+```json
+{
+  "type": "migration_completed",
+  "migration_id": "string",
+  "run_id": "string",
+  "from_vm_id": "string",
+  "to_vm_id": "string",
+  "status": "completed",
+  "health_ok": true,
+  "downtime_seconds": 1.5,
+  "resumed_index": 20,
+  "provision_market": "spot",
+  "checkpoint_key": "string",
+  "region": "ap-south-1"
+}
+```

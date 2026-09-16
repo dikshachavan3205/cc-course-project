@@ -1,0 +1,69 @@
+/*
+ * ChronoNet design tokens
+ *
+ * Every color, radius, shadow, and timing in the UI derives from here.
+ * Tailwind reads these via theme.extend.colors (see tailwind.config.js).
+ *
+ * RULES:
+ *  - --risk-low/medium/high are ONLY for the risk meter and status pills.
+ *  - No other component should reference those risk-state accents.
+ *  - Border-mid is applied at ~25% opacity for hairline dividers,
+ *    not at full strength.
+ *  - --glow-risk sits under the risk meter alone; no other shadow
+ *    exists in the UI.
+ */
+
+:root {
+  /* ── palette ─────────────────────────────────────────────────────────── */
+  --bg-base:      #00002A;
+  --bg-surface:   #1A3F75;
+  --border-mid:   #4D728F;
+  --text-muted:   #8FB0C9;
+  --text-primary: #C9DAE8;
+
+  /* derived borders */
+  --border-hairline: rgba(77, 114, 143, 0.25);
+  --border-strong:   rgba(77, 114, 143, 0.55);
+
+  /* risk-state accents — risk meter + status pills ONLY */
+  --risk-low:    #5FBF8F;
+  --risk-medium: #E0A84D;
+  --risk-high:   #E0654D;
+
+  /* connection status — top-bar reachability dot + inline trigger feedback.
+     Deliberately NOT the risk accents (those stay reserved for the risk
+     meter and history status pills), so "offline" never reads as risk. */
+  --conn-on:  #22C55E;
+  --conn-off: #EF4444;
+
+  /* ── typography ──────────────────────────────────────────────────────── */
+  --font-sans:  'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono:  'IBM Plex Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* type scale (px) */
+  --text-xs:  12px;
+  --text-sm:  14px;
+  --text-base: 16px;
+  --text-lg:  20px;
+  --text-xl:  28px;
+  --text-2xl: 40px;
+
+  /* line-heights (unitless) */
+  --leading-tight:  1.2;
+  --leading-snug:   1.3;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.5;
+
+  /* ── radii ───────────────────────────────────────────────────────────── */
+  --radius-data:      3px;   /* data panels, table rows — precise feel    */
+  --radius-prominent: 14px;  /* risk meter card + primary button only     */
+
+  /* ── shadow (risk meter only) ────────────────────────────────────────── */
+  --glow-risk: 0 0 32px rgba(95, 191, 143, 0.30);
+
+  /* ── motion ──────────────────────────────────────────────────────────── */
+  --duration-arc:  1200ms;
+  --ease-arc:      cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-value: 300ms;
+  --ease-value:     cubic-bezier(0.25, 0.1, 0.25, 1);
+}

@@ -1,4 +1,58 @@
 {
   "Version": "2012-10-17",
-  "Statement": []
+  "Statement": [
+    {
+      "Sid": "ChronoNetProvision",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceStatus",
+        "ec2:CreateTags",
+        "ec2:TerminateInstances",
+        "ec2:RequestSpotInstances",
+        "ec2:DescribeSpotInstanceRequests"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ChronoNetCheckpointS3",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::chrononet-checkpoints",
+        "arn:aws:s3:::chrononet-checkpoints/checkpoints/*"
+      ]
+    },
+    {
+      "Sid": "ChronoNetStateDynamoDB",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:511131039673:table/chrononet-vm-state",
+        "arn:aws:dynamodb:ap-south-1:511131039673:table/chrononet-migrations"
+      ]
+    },
+    {
+      "Sid": "ChronoNetAlertsSNS",
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish",
+        "sns:GetTopicAttributes"
+      ],
+      "Resource": "arn:aws:sns:ap-south-1:511131039673:chrononet-alerts"
+    }
+  ]
 }

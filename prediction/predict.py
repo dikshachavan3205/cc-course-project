@@ -1,13 +1,17 @@
 """
-Loads the trained risk model and predicts a risk score (0-1) from live
-instance telemetry + price signals.
+Loads the trained risk model and predicts interruption risk as a PERCENTAGE
+(0-100) from live instance telemetry + price signals.
+
+shared/contracts.md defines risk_percent as 0-100 for the backend API response
+and the "high risk" event — so this module returns the model's 0-1 score
+scaled to 0-100. The raw 0-1 score is available via _predict_risk_raw.
 
 This is what gets called at runtime (e.g. by monitoring/cloudwatch_collector.py
 or the backend) to answer: "what's the current interruption risk for this VM?"
 
 Usage:
     from predict import predict_risk
-    risk = predict_risk(
+    risk_percent = predict_risk(
         instance_type="t3.micro",
         cpu_percent=72.5,
         ram_percent=60.0,
@@ -16,7 +20,7 @@ Usage:
         price_volatility=0.0001,
         price_trend_ratio=1.05,
         savings_percent=70,
-    )
+    )   # -> float in [0, 100]
 """
 
 import json
@@ -42,7 +46,7 @@ def _load_model():
     return _model, _feature_columns
 
 
-def predict_risk(
+def _predict_risk_raw(
     instance_type: str,
     cpu_percent: float,
     ram_percent: float,
@@ -53,8 +57,9 @@ def predict_risk(
     savings_percent: float = 50.0,
 ) -> float:
     """
-    Returns a risk score between 0 and 1 (matches risk_percent in
-    shared/contracts.md — multiply by 100 if you need a percentage).
+    Internal: returns the model's raw risk score clamped to [0, 1].
+    Callers that need the contract-compliant percentage should use
+    predict_risk (0-100) instead.
     """
     model, feature_columns = _load_model()
 
@@ -82,6 +87,34 @@ def predict_risk(
     return max(0.0, min(1.0, risk_score))  # clamp to valid [0, 1] range
 
 
+def predict_risk(
+    instance_type: str,
+    cpu_percent: float,
+    ram_percent: float,
+    network_mbps: float,
+    instance_age_minutes: int,
+    price_volatility: float = 0.0,
+    price_trend_ratio: float = 1.0,
+    savings_percent: float = 50.0,
+) -> float:
+    """
+    Returns the predicted interruption risk as a PERCENTAGE in [0, 100],
+    matching risk_percent in shared/contracts.md (the backend API response
+    and the "high risk" event both use 0-100).
+    """
+    raw = _predict_risk_raw(
+        instance_type,
+        cpu_percent,
+        ram_percent,
+        network_mbps,
+        instance_age_minutes,
+        price_volatility,
+        price_trend_ratio,
+        savings_percent,
+    )
+    return max(0.0, min(100.0, raw * 100.0))  # scale to percentage, clamp [0, 100]
+
+
 if __name__ == "__main__":
     # Quick manual test
     test_risk = predict_risk(
@@ -94,7 +127,7 @@ if __name__ == "__main__":
         price_trend_ratio=1.03,
         savings_percent=70,
     )
-    print(f"[predict] Predicted risk for t3.micro under load: {test_risk:.4f}")
+    print(f"[predict] Predicted risk% for t3.micro under load: {test_risk:.2f}")
 
     test_risk_idle = predict_risk(
         instance_type="t3.micro",
@@ -106,5 +139,10 @@ if __name__ == "__main__":
         price_trend_ratio=1.0,
         savings_percent=70,
     )
-    print(f"[predict] Predicted risk for t3.micro idle: {test_risk_idle:.4f}")
+    print(f"[predict] Predicted risk% for t3.micro idle: {test_risk_idle:.2f}")
+
+    for label, value in [("under load", test_risk), ("idle", test_risk_idle)]:
+        assert isinstance(value, float), f"{label}: not a float"
+        assert 0.0 <= value <= 100.0, f"{label}: risk not in [0, 100]"
+    print("[predict] OK: both outputs are valid 0-100 percentage floats.")
     

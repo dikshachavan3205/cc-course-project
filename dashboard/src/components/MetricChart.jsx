@@ -1,12 +1,7 @@
-// Live CPU / RAM line chart — last ~5 minutes of polled points from the
-// rolling in-memory buffer maintained in the parent (App). No refetch: GET
-// /status only yields the current point, so the buffer is the history.
-//
-// Styled strictly inside the token set: gridlines are --border-mid at low
-// opacity, ticks are --text-muted, lines are --text-primary (cpu) and
-// --border-mid (ram). No default chart.js palette, and NO risk accents here —
-// those are reserved for the risk meter and history status pills. Legend is an
-// inline label pair above the chart (no box, no shadow).
+// Single-metric line chart for the Telemetry Stream deep-dive. Same
+// tokenized styling as LiveChart — hairline gridlines, custom tooltip, zero
+// shadows — but one dataset, so CPU and RAM get dedicated analytical panels.
+// No risk accents here; the resource series stay in neutral tokens.
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,18 +17,13 @@ import { readCssVarRgb, rgbString } from '../lib/tokens';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip);
 
-export default function LiveChart({ series = [], heightClass = 'h-56' }) {
-  // Chart.js draws to canvas, so the CSS prefers-reduced-motion media query
-  // can't reach it — pick up the flag here and skip the redraw animation.
+export default function MetricChart({ title, series = [], dataKey, rgb, heightClass = 'h-40' }) {
   const reducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const cpuRgb = readCssVarRgb('text-primary');
-  const ramRgb = readCssVarRgb('border-mid');
-  const cpuColor = rgbString(cpuRgb);
-  const ramColor = rgbString(ramRgb);
+  const color = rgbString(rgb);
   const gridColor = rgbString(readCssVarRgb('border-mid'), 0.3);
   const tickColor = rgbString(readCssVarRgb('text-muted'));
   const panelBg = rgbString(readCssVarRgb('bg-surface'));
@@ -43,21 +33,10 @@ export default function LiveChart({ series = [], heightClass = 'h-56' }) {
     labels: series.map((p) => fmtClock(p.t)),
     datasets: [
       {
-        // ram drawn first so it sits *under* the cpu area fill.
-        label: 'ram',
-        data: series.map((p) => p.ram),
-        borderColor: ramColor,
-        backgroundColor: rgbString(ramRgb, 0.1),
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2,
-      },
-      {
-        label: 'cpu',
-        data: series.map((p) => p.cpu),
-        borderColor: cpuColor,
-        backgroundColor: rgbString(cpuRgb, 0.08),
+        label: title,
+        data: series.map((p) => p[dataKey]),
+        borderColor: color,
+        backgroundColor: rgbString(rgb, 0.08),
         fill: true,
         tension: 0.3,
         pointRadius: 0,
@@ -101,22 +80,9 @@ export default function LiveChart({ series = [], heightClass = 'h-56' }) {
     },
   };
 
-  const legendDot = (color, label) => (
-    <span className="flex items-center gap-1.5 text-sm text-muted">
-      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
-  );
-
   return (
-    <section className="panel p-5" aria-label="Live CPU and RAM">
-      <div className="flex items-center justify-between">
-        <p className="panel-label">cpu / ram · live</p>
-        <div className="flex items-center gap-4">
-          {legendDot(cpuColor, 'cpu')}
-          {legendDot(ramColor, 'ram')}
-        </div>
-      </div>
+    <section className="panel p-5" aria-label={`${title} chart`}>
+      <p className="panel-label">{title}</p>
       <div className={`mt-4 ${heightClass}`}>
         {series.length > 0 ? (
           <Line data={data} options={options} />
