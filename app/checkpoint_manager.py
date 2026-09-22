@@ -148,6 +148,11 @@ def load_latest_checkpoint_from_s3(run_id: str) -> dict | None:
     )
 
     objects = response.get("Contents", [])
+    # Only checkpoint JSONs are candidates for "latest". The run's S3 prefix
+    # can legitimately contain non-checkpoint artifacts (probe logs, partial
+    # uploads, tarballs...) — picking one of those by key order would make
+    # json.loads crash the whole recovery flow.
+    objects = [obj for obj in objects if obj["Key"].endswith(".json")]
     if not objects:
         return None
 

@@ -11,6 +11,7 @@ Real flow:
   3. wait until the instance is running
 """
 
+import base64
 import os
 import sys
 
@@ -57,6 +58,7 @@ def provision_instance(
     key_name: str | None = None,
     security_group_ids: list[str] | None = None,
     instance_profile: str | None = INSTANCE_PROFILE,
+    user_data: str | None = None,
     logger=None,
     allow_real: bool = False,
 ) -> dict:
@@ -100,6 +102,8 @@ def provision_instance(
         # instance can itself write checkpoints to S3, read/write DynamoDB and
         # publish SNS alerts. Pass instance_profile=None to launch without one.
         base_kwargs["IamInstanceProfile"] = {"Name": instance_profile}
+    if user_data:
+        base_kwargs["UserData"] = base64.b64encode(user_data.encode("utf-8")).decode("ascii")
 
     # ── Attempt 1: Spot ──
     response = None
