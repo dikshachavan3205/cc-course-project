@@ -15,6 +15,10 @@ DYNAMODB_TABLE_PREDICTIONS = "chrononet-predictions"  # optional: log every risk
 
 SNS_TOPIC_NAME = "chrononet-alerts"
 
+# IAM instance profile attached to every launched replacement instance
+# (grants S3/DynamoDB/SNS permissions via the chrononet-ec2-role policy).
+INSTANCE_PROFILE = "chrononet-ec2-role"
+
 CHECKPOINT_INTERVAL_SECONDS = 60
 IMDS_POLL_INTERVAL_SECONDS = 5
 METRICS_POLL_INTERVAL_SECONDS = 15

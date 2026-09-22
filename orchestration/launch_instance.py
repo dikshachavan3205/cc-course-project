@@ -12,8 +12,17 @@ Real flow:
 """
 
 import os
+import sys
 
 import boto3
+
+# Make `shared/` importable whether run as `-m orchestration.launch_instance`
+# (repo root on sys.path) or `python orchestration/launch_instance.py`.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+from shared.constants import INSTANCE_PROFILE  # noqa: E402
 
 
 def _fake_instance_id(prefix: str = "i") -> str:
@@ -47,6 +56,7 @@ def provision_instance(
     subnet_id: str | None = None,
     key_name: str | None = None,
     security_group_ids: list[str] | None = None,
+    instance_profile: str | None = INSTANCE_PROFILE,
     logger=None,
     allow_real: bool = False,
 ) -> dict:
@@ -85,6 +95,11 @@ def provision_instance(
         base_kwargs["KeyName"] = key_name
     if security_group_ids:
         base_kwargs["SecurityGroupIds"] = security_group_ids
+    if instance_profile:
+        # Attach the chrononet-ec2-role IAM instance profile so the launched
+        # instance can itself write checkpoints to S3, read/write DynamoDB and
+        # publish SNS alerts. Pass instance_profile=None to launch without one.
+        base_kwargs["IamInstanceProfile"] = {"Name": instance_profile}
 
     # ── Attempt 1: Spot ──
     response = None
