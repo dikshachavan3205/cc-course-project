@@ -9,11 +9,11 @@ was required, `❌ BLOCKED` = cannot complete without an external dependency.
 | Phase | Status | Notes |
 |---|---|---|
 | 0 — Environment | ⚠️ FIXED | numpy added to prediction reqs; stale `requests` dropped; `.env.example` aligned to `CHRONONET_*` vars; regenerable dataset dirs gitignored |
-| 1 — IAM | ✅ WORKING | role `chrononet-ec2-role` exists, trusts EC2 only; intended policy within EC2/S3/DDB/SNS; zero hardcoded keys. Read-verify perms granted later |
+| 1 — IAM | ⚠️ FIXED (visibility closed) | role `chrononet-ec2-role` + profile exist, trusts EC2 only; zero hardcoded keys. **Attached policies are 4 AWS-managed**: `CloudWatchReadOnlyAccess`, `AmazonSNSFullAccess`, `AmazonDynamoDBFullAccess`, `AmazonS3FullAccess` — services within the S3/DDB/CloudWatch/SNS set (EC2/EventBridge correctly absent from an instance role), **but broader than the repo's resource-scoped design**; the attached set is not the custom `ec2_role_policy.json` |
 | 2 — Dataset | ✅ WORKING | real fetchers (2,536 price rows, 34 regions / 1,155 types); 400-row dataset clean (0 NaN/neg/dupe); seed-42 split; retrain MAE 0.0207 / R² 0.8828 |
 | 3 — Docker | ✅ WORKING | build 258MB; run-to-completion; volume-persisted resume confirmed at step 17 |
 | 4 — S3 Checkpoints | ✅ WORKING | key pattern `checkpoints/{run_id}/{timestamp}.json`; load-latest verified; stale `{vm_id}` comment fixed. **No lifecycle rule** (optional) |
-| 5 — Monitoring | ⚠️ FIXED + live checks ✅ WORKING | `cloudwatch_collector` stub implemented (real CPU, explicit-None RAM); imds_watcher IMDSv2 verified **on a live instance** (below) |
+| 5 — Monitoring | ⚠️ FIXED → ✅ WORKING | `cloudwatch_collector` stub implemented (real CPU, explicit-None RAM); imds_watcher IMDSv2 verified **on a live instance**; **EventBridge rule deployed for real (below)** |
 | 6 — Model | ⚠️ FIXED | strict (0,1) risk clamp; only shared `RISK_THRESHOLD`; MAE 0.0207 / R² 0.8828 vs target |
 | 7 — DynamoDB | ✅ WORKING | live self-check; field names/types match contracts; history filters + sorts by run |
 | 8 — Orchestration | ⚠️ FIXED | profile attach + idempotent terminate; Spot→On-Demand fallback; `test-migration` honors `--provision`. **Real EC2 E2E passed** (below) |
@@ -51,10 +51,16 @@ On the same live instance (before termination):
 - `monitoring/cloudwatch_collector` for `i-0669a3f5474513ba2`: **real CPUUtilization 0.68%**
   returned over 8-min window (RAM stays explicit `None` by design).
 
+## EventBridge rule — deployed for real
+
+`chrononet-spot-interruption-rule` (created from `monitoring/eventbridge_setup/rule_definition.json`):
+- State **ENABLED**; EventPattern `source=["aws.ec2"]`, `detail-type=["EC2 Spot Instance Interruption Warning"]`.
+- Target: `chrononet-alerts-sns` → `arn:aws:sns:ap-south-1:511131039673:chrononet-alerts` (PutTargets: 0 failures).
+- SNS topic policy: added `EventBridgePublishToSNS` statement (`Principal: events.amazonaws.com`, `sns:Publish`, scoped via `AWS:SourceArn` = the rule ARN), preserving the existing default statement.
+- Verified via `events:describe-rule` (ENABLED) and `events:list-targets-by-rule` (correct target ARN).
+
 ## Needs-input / gaps
-- **EventBridge rule never deployed** (`chrononet-spot-interruption-rule`): repo contains only
-  `rule_definition.json`; `events:describe-rule` returns ResourceNotFoundException. Needs
-  `events:PutRule`/`PutTargets` (or console) to create + wire to the SNS topic.
+- **Replace broad managed policies on `chrononet-ec2-role`** before any go-live: currently `AmazonS3FullAccess` / `AmazonDynamoDBFullAccess` / `AmazonSNSFullAccess` / `CloudWatchReadOnlyAccess` — world-scoped, not the resource-scoped least-privilege policy the design intends. The repo's `ec2_role_policy.json` is the **hub-operator** policy (ec2 run/terminate + scoped S3/DDB/SNS), not an instance-scoped policy; decide on the swap (author an instance-scoped policy vs. accept managed policies).
 - Live `metrics_buffer.py` / `prediction/evaluate.py` remain one-line stubs (out of checklist scope).
 - `AWS_REGION` defined twice in `shared/constants.py` (harmless); `README.md` stale ("Phase 1 complete").
 - Windows WDAC blocks newest ML wheels → pinned pandas 2.2.3 / sklearn 1.4.2 / xgboost 2.0.3 in `venv/`.
