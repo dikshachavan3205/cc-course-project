@@ -84,7 +84,9 @@ def _predict_risk_raw(
     X = pd.DataFrame([row])[feature_columns]  # enforce exact column order
 
     risk_score = float(model.predict(X)[0])
-    return max(0.0, min(1.0, risk_score))  # clamp to valid [0, 1] range
+    # Strictly inside (0, 1), never exactly 0 or 1: a regression model can
+    # saturate, but a risk probability must stay a valid strict probability.
+    return min(0.999999, max(0.000001, risk_score))
 
 
 def predict_risk(
