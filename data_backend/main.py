@@ -208,7 +208,7 @@ def root():
     return {
         "service": "ChronoNet Orchestration Hub",
         "version": app.version,
-        "endpoints": ["/status", "/history", "/interruption", "/health"],
+        "endpoints": ["/status", "/history", "/checkpoint-status", "/interruption", "/health"],
         "docs": "/docs",
     }
 
@@ -243,6 +243,39 @@ def get_history(run_id: str):
     body = {"run_id": run_id, "migrations": migrations}
     if warning:
         body["warning"] = warning
+    return body
+
+
+@app.get("/checkpoint-status")
+def checkpoint_status(run_id: str):
+    """
+    Most recent checkpoint for a run — the latest object under
+    checkpoints/{run_id}/ in S3 (chrononet-checkpoints). Returns a valid JSON
+    body with found=false when there is nothing yet or AWS is unreachable.
+    """
+    body = {
+        "run_id": run_id,
+        "found": False,
+        "last_processed_index": None,
+        "vm_id": None,
+        "timestamp": None,
+        "s3_key": None,
+    }
+    try:
+        from app.checkpoint_manager import _s3_key_for, load_latest_checkpoint_from_s3
+        cp = load_latest_checkpoint_from_s3(run_id)
+        if cp:
+            body.update({
+                "found": True,
+                "last_processed_index": int(cp["last_processed_index"]),
+                "vm_id": cp.get("vm_id"),
+                "timestamp": cp.get("timestamp"),
+                "s3_key": _s3_key_for(run_id, cp["timestamp"]),
+            })
+    except Exception as e:  # noqa: BLE001 - never 500 on AWS hiccups
+        print(f"[orchestrator] WARNING: checkpoint-status lookup failed "
+              f"({type(e).__name__}: {e})")
+        body["warning"] = f"{type(e).__name__}: {e}"
     return body
 
 
