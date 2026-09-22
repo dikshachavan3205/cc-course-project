@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import Logo from "./Logo.jsx";
 import { ConnectionDot, DemoBadge, Icon, OfflineBanner } from "./ui.jsx";
 import { useChrono } from "../hooks/useChrono.js";
@@ -12,13 +12,22 @@ const NAV = [
   { to: "/simulate", label: "Simulate", icon: "zap" },
 ];
 
-function navClass({ isActive }) {
+// Deterministic active-state: exact match per item, except Overview which owns
+// its /overview/* children (Timeline). Never relies on NavLink's deferred
+// isActive, so the highlighted item always reflects the current route.
+export function useActiveNav() {
+  const { pathname } = useLocation();
+  return (to) => (to === "/overview" ? pathname === "/overview" || pathname.startsWith("/overview/") : pathname === to);
+}
+
+function navClass(active) {
   return `flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors ${
-    isActive ? "bg-elevated text-primary" : "text-muted hover:bg-surface hover:text-primary"
+    active ? "bg-elevated text-primary" : "text-muted hover:bg-surface hover:text-primary"
   } lg:px-3 justify-center lg:justify-start`;
 }
 
 function Sidebar() {
+  const isActive = useActiveNav();
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-20 flex-col border-r border-border-mid/30 bg-base/90 backdrop-blur sm:flex lg:w-60">
       <div className="flex h-16 items-center px-4 lg:px-5">
@@ -26,14 +35,19 @@ function Sidebar() {
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-2.5 py-3 lg:px-3" aria-label="Primary">
         {NAV.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.to !== "/overview"} className={navClass}>
+          <NavLink
+            key={item.to}
+            to={item.to}
+            aria-current={isActive(item.to) ? "page" : undefined}
+            className={navClass(isActive(item.to))}
+          >
             <Icon name={item.icon} className="h-4 w-4 shrink-0" />
             <span className="hidden lg:inline">{item.label}</span>
           </NavLink>
         ))}
       </nav>
       <div className="mb-3 px-2.5 lg:px-3">
-        <NavLink to="/settings" end className={navClass}>
+        <NavLink to="/settings" aria-current={isActive("/settings") ? "page" : undefined} className={navClass(isActive("/settings"))}>
           <Icon name="settings" className="h-4 w-4 shrink-0" />
           <span className="hidden lg:inline">Settings</span>
         </NavLink>
@@ -44,23 +58,23 @@ function Sidebar() {
 
 function MobileBar() {
   const items = [...NAV, { to: "/settings", label: "Settings", icon: "settings" }];
+  const isActive = useActiveNav();
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-7 border-t border-border-mid/30 bg-base/95 backdrop-blur sm:hidden"
       aria-label="Primary"
     >
       {items.map((item) => (
-        <NavLink key={item.to} to={item.to} end={item.to !== "/overview"}>
-          {({ isActive }) => (
-            <span
-              className={`flex flex-col items-center gap-0.5 py-2 text-[10px] ${
-                isActive ? "text-primary" : "text-muted"
-              }`}
-            >
-              <Icon name={item.icon} className="h-4 w-4" />
-              {item.label}
-            </span>
-          )}
+        <NavLink
+          key={item.to}
+          to={item.to}
+          aria-current={isActive(item.to) ? "page" : undefined}
+          className={isActive(item.to) ? "text-primary" : "text-muted"}
+        >
+          <span className="flex flex-col items-center gap-0.5 py-2 text-[10px]">
+            <Icon name={item.icon} className="h-4 w-4" />
+            {item.label}
+          </span>
         </NavLink>
       ))}
     </nav>

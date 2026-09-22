@@ -40,6 +40,18 @@ export default function Overview() {
   const now = Date.now();
   const recent = (history || []).slice(0, 3);
 
+  // StatusResponse aggregates (migration_count / last_downtime_seconds) reset
+  // whenever the backend process restarts, so derive the real numbers from the
+  // run-scoped migration history instead.
+  const completedMig = useMemo(
+    () => (history || []).filter((h) => h.status === "completed").length,
+    [history],
+  );
+  const lastDowntime = useMemo(
+    () => (history || []).find((h) => Number.isFinite(h?.downtime_seconds)),
+    [history],
+  );
+
   const chartWindow = (series || []).slice(-60);
   const chartLabels = chartWindow.map((p) => todayHMS(p.t));
   const cpuSeries = chartWindow.map((p) => p.cpu);
@@ -90,15 +102,15 @@ export default function Overview() {
         />
         <StatCard
           label="Migrations"
-          value={status ? status.migration_count : "—"}
+          value={completedMig}
           sub="completed this run"
           accent="var(--risk-low)"
           icon="swap"
         />
         <StatCard
           label="Last downtime"
-          value={status ? fmtSeconds(status.last_downtime_seconds) : "—"}
-          sub="measured trigger → resume"
+          value={lastDowntime ? fmtSeconds(lastDowntime.downtime_seconds) : "—"}
+          sub="latest migration trigger → resume"
           accent="var(--risk-medium)"
           icon="zap"
         />
