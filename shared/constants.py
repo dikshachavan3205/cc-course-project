@@ -9,7 +9,7 @@ AWS_REGION = "ap-south-1"          # set to your team's actual region
 
 RISK_THRESHOLD_WARN = 0.5          # optional: earlier "elevated risk" warning for dashboard
 
-S3_CHECKPOINT_PREFIX = "checkpoints"                # key pattern: checkpoints/{vm_id}/{timestamp}.json
+S3_CHECKPOINT_PREFIX = "checkpoints"                # key pattern: checkpoints/{run_id}/{timestamp}.json
 
 DYNAMODB_TABLE_PREDICTIONS = "chrononet-predictions"  # optional: log every risk score, not just migrations
 
