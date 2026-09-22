@@ -9,17 +9,17 @@ was required, `❌ BLOCKED` = cannot complete without an external dependency.
 | Phase | Status | Notes |
 |---|---|---|
 | 0 — Environment | ⚠️ FIXED | numpy added to prediction reqs; stale `requests` dropped; `.env.example` aligned to `CHRONONET_*` vars; regenerable dataset dirs gitignored |
-| 1 — IAM | ⚠️ FIXED (visibility closed) | role `chrononet-ec2-role` + profile exist, trusts EC2 only; zero hardcoded keys. **Attached policies are 4 AWS-managed**: `CloudWatchReadOnlyAccess`, `AmazonSNSFullAccess`, `AmazonDynamoDBFullAccess`, `AmazonS3FullAccess` — services within the S3/DDB/CloudWatch/SNS set (EC2/EventBridge correctly absent from an instance role), **but broader than the repo's resource-scoped design**; the attached set is not the custom `ec2_role_policy.json` |
+| 1 — IAM | ⚠️ FIXED (visibility closed, decision documented) | role `chrononet-ec2-role` + profile exist, trusts EC2 only; zero hardcoded keys. **Attached policies are 4 AWS-managed**: `CloudWatchReadOnlyAccess`, `AmazonSNSFullAccess`, `AmazonDynamoDBFullAccess`, `AmazonS3FullAccess` — services scoped to S3/DDB/CloudWatch/SNS (no EC2/EventBridge) but not resource-scoped. Left as-is; see decision note in Needs-input |
 | 2 — Dataset | ✅ WORKING | real fetchers (2,536 price rows, 34 regions / 1,155 types); 400-row dataset clean (0 NaN/neg/dupe); seed-42 split; retrain MAE 0.0207 / R² 0.8828 |
 | 3 — Docker | ✅ WORKING | build 258MB; run-to-completion; volume-persisted resume confirmed at step 17 |
-| 4 — S3 Checkpoints | ✅ WORKING | key pattern `checkpoints/{run_id}/{timestamp}.json`; load-latest verified; stale `{vm_id}` comment fixed. **No lifecycle rule** (optional) |
+| 4 — S3 Checkpoints | ✅ WORKING | key pattern `checkpoints/{run_id}/{timestamp}.json`; load-latest verified; stale `{vm_id}` comment fixed. **Lifecycle rule added**: expire `checkpoints/` objects after 14 days (verified via `get-bucket-lifecycle-configuration`) |
 | 5 — Monitoring | ⚠️ FIXED → ✅ WORKING | `cloudwatch_collector` stub implemented (real CPU, explicit-None RAM); imds_watcher IMDSv2 verified **on a live instance**; **EventBridge rule deployed for real (below)** |
 | 6 — Model | ⚠️ FIXED | strict (0,1) risk clamp; only shared `RISK_THRESHOLD`; MAE 0.0207 / R² 0.8828 vs target |
 | 7 — DynamoDB | ✅ WORKING | live self-check; field names/types match contracts; history filters + sorts by run |
 | 8 — Orchestration | ⚠️ FIXED | profile attach + idempotent terminate; Spot→On-Demand fallback; `test-migration` honors `--provision`. **Real EC2 E2E passed** (below) |
 | 9 — SNS | ✅ WORKING | ARN derived, not hardcoded; subscription confirmed; test alert delivered |
 | 10 — API | ⚠️ FIXED | added `GET /checkpoint-status`; shapes + empty cases verified; CORS `*` |
-| 11 — Dashboard | ⚠️ FIXED | poll default aligned to `DASHBOARD_POLL_INTERVAL_SECONDS=5`; live `/status` + `/history` polling; labels verified; build clean |
+| 11 — Dashboard | ✅ WORKING | poll default aligned to `DASHBOARD_POLL_INTERVAL_SECONDS=5`; live `/status` + `/history` polling verified against the running backend (headless-browser request log shows 5s `/status` cadence + 10s `/history`); labels verified; build clean |
 
 ## Real EC2 E2E (Phase 8) — PASSED, downtime measured
 
@@ -60,7 +60,7 @@ On the same live instance (before termination):
 - Verified via `events:describe-rule` (ENABLED) and `events:list-targets-by-rule` (correct target ARN).
 
 ## Needs-input / gaps
-- **Replace broad managed policies on `chrononet-ec2-role`** before any go-live: currently `AmazonS3FullAccess` / `AmazonDynamoDBFullAccess` / `AmazonSNSFullAccess` / `CloudWatchReadOnlyAccess` — world-scoped, not the resource-scoped least-privilege policy the design intends. The repo's `ec2_role_policy.json` is the **hub-operator** policy (ec2 run/terminate + scoped S3/DDB/SNS), not an instance-scoped policy; decide on the swap (author an instance-scoped policy vs. accept managed policies).
+- **IAM scope decision (documented, not rewritten):** *"chrononet-ec2-role currently uses AWS-managed Full/ReadOnly policies (CloudWatchReadOnlyAccess, AmazonSNSFullAccess, AmazonDynamoDBFullAccess, AmazonS3FullAccess) rather than a resource-scoped custom policy. Least-privilege was targeted at the service level (only S3/DynamoDB/CloudWatch/SNS — no EC2/EventBridge) but not the resource level. Left as-is to avoid destabilizing a working, tested role this close to demo. A scoped policy is a documented future improvement, not a functional gap."*
 - Live `metrics_buffer.py` / `prediction/evaluate.py` remain one-line stubs (out of checklist scope).
 - `AWS_REGION` defined twice in `shared/constants.py` (harmless); `README.md` stale ("Phase 1 complete").
 - Windows WDAC blocks newest ML wheels → pinned pandas 2.2.3 / sklearn 1.4.2 / xgboost 2.0.3 in `venv/`.
