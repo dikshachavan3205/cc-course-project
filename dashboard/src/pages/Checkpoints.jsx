@@ -54,9 +54,9 @@ export default function Checkpoints() {
   const { history } = useChrono();
   const now = useNow();
 
-  const latest = useMemo(() => (history || []).find((h) => h.checkpoint_key), [history]);
+  const latest = useMemo(() => (history || []).find((h) => h.checkpoint_key && Number.isFinite(h.resumed_index)), [history]);
   const archived = useMemo(
-    () => (history || []).filter((h) => h.checkpoint_key).slice(0, 5),
+    () => (history || []).filter((h) => h.checkpoint_key && Number.isFinite(h.resumed_index)).slice(0, 5),
     [history],
   );
 

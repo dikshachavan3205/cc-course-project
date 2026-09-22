@@ -29,7 +29,10 @@ export default function Overview() {
     : "waiting for the ChronoNet API to report state";
 
   const latestCp = useMemo(
-    () => (history || []).find((h) => h.checkpoint_key),
+    // A real checkpoint row carries a numeric resumed_index; client-side
+    // trigger rows have checkpoint_key but resumed_index=null and must not
+    // win the "latest" slot.
+    () => (history || []).find((h) => h.checkpoint_key && Number.isFinite(h.resumed_index)),
     [history],
   );
   const cpAge = latestCp ? timeAgo(latestCp.timestamp) : "—";
@@ -50,6 +53,7 @@ export default function Overview() {
         vm_id: status?.vm_id || "vm-local-dev",
         risk_percent: 100.0,
         threshold_exceeded: true,
+        timestamp: new Date().toISOString(),
       },
       source,
     );
@@ -110,8 +114,12 @@ export default function Overview() {
         />
         <StatCard
           label="Memory"
-          value={risk === null ? "—" : fmtPct(status.ram_percent)}
-          sub="current instance"
+          value={Number.isFinite(status?.ram_percent) && status.ram_percent > 0 ? fmtPct(status.ram_percent) : "N/A"}
+          sub={
+            Number.isFinite(status?.ram_percent) && status.ram_percent > 0
+              ? "current instance"
+              : "not available (no CloudWatch Agent)"
+          }
           accent="var(--text-primary)"
           icon="box"
         />

@@ -31,6 +31,12 @@ export default function Monitoring() {
   const { labels, cpu, ram, risk } = useMemo(() => downsample(series), [series]);
   const riskColor = getRiskColor(status?.risk_percent ?? 0);
 
+  // RAM is only ever a real measurement with a CloudWatch Agent (CWAgent
+  // namespace); until then get_instance_metrics returns None / the stored
+  // value is the 0.0 sentinel. Don't draw a misleading flat 0% line for it.
+  const ramReadable = (series || []).some((p) => Number.isFinite(p.ram) && p.ram > 0);
+  const ramSeries = ramReadable ? ram : [];
+
   const windowNote = series && series.length >= 2 ? "~30 min window at the configured poll" : "buffer not full yet";
 
   return (
@@ -46,10 +52,17 @@ export default function Monitoring() {
             labels={labels}
             datasets={[
               { label: "CPU %", data: cpu, stroke: "rgba(201,218,232,0.95)" },
-              { label: "RAM %", data: ram, stroke: "rgba(143,176,201,0.7)" },
+              ...(ramReadable
+                ? [{ label: "RAM %", data: ramSeries, stroke: "rgba(143,176,201,0.7)" }]
+                : []),
             ]}
             yFormat={(v) => `${v.toFixed(1)}%`}
           />
+          {ramReadable ? null : (
+            <div className="pt-2 text-xs text-muted">
+              RAM % not available — requires the CloudWatch Agent on the instance.
+            </div>
+          )}
         </ChartPanel>
 
         <ChartPanel title="Risk" height={280} extra={<span className="text-xs text-muted">{`${labels.length} samples`}</span>}>
