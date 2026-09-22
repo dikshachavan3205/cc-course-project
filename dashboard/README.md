@@ -1,101 +1,70 @@
-# ChronoNet Dashboard
+# ChronoNet — Command Center (dashboard)
 
-Ops console for ChronoNet — predicts EC2 Spot interruptions and migrates the
-Dockerized workload with zero progress loss. This is a **systems/DevOps tool**
-(CloudWatch / Grafana register of restraint), not a consumer marketing site.
-Keep it that way.
+Studio-grade frontend for the ChronoNet orchestration hub. Reads real state from
+the FastAPI backend (`GET /status`, `GET /history`), can **trigger a real 7-step
+migration** (`POST /interruption`), and renders the returned step timeline.
 
-## Stack
+## Run it
 
-- Vite + React 18
-- Tailwind CSS 3 (PostCSS) — classes are generated **only from tokens**
-- chart.js + react-chartjs-2
-- Axios (talks to `data_backend/main.py`, FastAPI on `:8000`, proxied by Vite)
+```powershell
+# 1. Backend (repo root)
+python -m uvicorn data_backend.main:app --port 8000
 
-## Design decisions — do not "fix" these back to defaults
-
-### 1. Color tokens are the single source of truth
-All colors live as CSS custom properties in
-[`src/styles/tokens.css`](./src/styles/tokens.css) and are exposed to Tailwind
-via `theme.extend.colors` in `tailwind.config.js` (usable as `bg-base`,
-`text-primary`, `border-border-mid`, …). Never hardcode a hex in a component.
-
-- Dark navy scale (`--bg-base #00002A`, `--bg-surface #1A3F75`, …
-  `--text-primary #C9DAE8`) — long-session monitoring palette, not a landing
-  page aesthetic.
-- **Reserved risk-state accents** `--risk-low/medium/high` are allowed ONLY on
-  the risk meter and status pills. No other component may reference them.
-- `--border-mid` is drawn at ~30 % opacity as `--border-hairline` for actual
-  borders — hairline dividers, not thick outlines.
-
-### 2. Exactly two font families, distinct roles
-- **Space Grotesk** (500/600/700) — headings, labels, UI chrome, buttons, body.
-- **IBM Plex Mono** (400/500) — **every** numeric readout, without exception:
-  CPU %, RAM %, risk %, downtime seconds, migration count, timestamps, numeric
-  table columns. This is for tabular alignment, not decoration.
-
-Loaded via `@fontsource` npm packages (offline, no CDN) in
-`src/styles/index.css`.
-
-Type scale is a real scale: **12 / 14 / 16 / 20 / 28 / 40 px** (`text-xs`
-through `text-2xl`). Sentence case throughout. No tracked-out ALL-CAPS
-eyebrow labels, no label-above-every-heading pattern.
-
-### 3. Radius carries meaning — it is not uniform
-- Data panels and table rows: **2–4 px** (`rounded-data`, technical feel).
-- **12–16 px** (`rounded-prominent`) is reserved for exactly two elements:
-  the risk meter card and the primary "Trigger event" button.
-
-### 4. Flat, hairline, shadow-free panels
-Separate panels with 1 px hairline borders (`--border-hairline`). **No drop
-shadows anywhere.** The single exception: `--glow-risk` under the risk meter
-card — that is the one bold element in the UI. No gradient washes as
-decoration, ever.
-
-### 5. Motion is one orchestrated moment
-- **First load only:** the risk meter arc animates 0 → current value once
-  (`arc-fill`, 1200 ms, ease-out expo). Not per-card entrance parades.
-- **Every poll after:** values update via a smooth CSS transition
-  (300 ms `--ease-value` on the changed number/arc). Never a re-triggered
-  entrance animation.
-- No fade-and-slide-up on section load. No hover-lift on every card.
-
-### 6. Layout (12-column grid)
-Wireframe — desktop columns → single column below 768px:
-
-```
-ChronoNet    ● connected · ap-south-1      [Trigger event]
-[ risk (4) ] [ cpu/ram · live (5) ]        [ vm status (3) ]
-[ checkpoint (4) ] [ migrations (4) ]      [ last downtime (4) ]
-[ migration history (12, full width) ]
+# 2. Dashboard (this folder)
+npm install
+npm run dev
 ```
 
-## Commands
+Open **http://localhost:5173** (Vite may bind IPv6 — `http://[::1]:5173` also works).
 
-```bash
-npm run dev       # vite dev server :5173 (proxies to FastAPI :8000)
-npm run build     # production build
-npm run preview   # preview the production build
+Production build + preview:
+
+```powershell
+npm run build        # -> dist/
+npm run preview      # serves dist on :4173
 ```
 
-## File map
+## API base URL
 
-```
-src/
-  styles/tokens.css        design tokens (colors, type, radii, motion)
-  styles/index.css         fonts + tailwind layers + base + .panel helpers
-  api/client.js            axios client for /status /history /interruption
-  hooks/usePolling.js      poll cadence hook (shell)
-  components/              empty shells for the wireframe panels
-```
+Defaults to `http://127.0.0.1:8000`. Override **before** build with
+`VITE_API_BASE_URL`, or per-browser from **Settings → API base URL** and click
+“Save & test”. The backend enables CORS (`*`) by default for any local origin.
 
-## Contract reference
+## Pages
 
-The dashboard consumes `data_backend/main.py` which strictly follows
-`shared/contracts.md`:
+| Route | What it shows |
+| --- | --- |
+| `/overview` | State headline ("All stable" / "Risk elevated" / "Migrating now", driven by risk), risk-posture hero gauge, stat grids, interruption trigger, live telemetry + last 3 migrations |
+| `/overview/timeline` | The exact step sequence from the most recent trigger |
+| `/instances` | Current instance + every node seen in migration history |
+| `/checkpoints` | Latest checkpoint key (click to copy), live age, resumed index |
+| `/migrations` | Sortable history table; click a row to expand per-step detail when recorded |
+| `/monitoring` | CPU / RAM / risk charts over the accumulated rolling window |
+| `/simulate` | Large trigger control; renders the 7-step vertical stepper with elapsed ms |
+| `/settings` | API base URL, status poll interval, **Demo data** toggle |
 
-- `GET /status` → `{run_id, vm_id, region, cpu_percent, ram_percent,
-  risk_percent, migration_count, last_downtime_seconds}`
-- `GET /history?run_id=` → `{run_id, migrations: [...]}`
-- `POST /interruption` → RiskEvent `{run_id, vm_id, risk_percent,
-  threshold_exceeded, timestamp}` and returns the migration summary
+## Shared behavior
+
+- One polling engine (`src/hooks/useChrono.js`) drives every page: `/status`
+  every N s (default 3 s, Settings-adjustable) and `/history` every 10 s.
+- Offline after 2 consecutive failed polls; shows the calm reconnect banner and
+  keeps last-known data.
+- **Demo data** mode (Settings) serves synthetic telemetry with shapes identical
+  to the live API and is always marked with the persistent "Demo data" badge —
+  sample data is never presented as live state.
+- `src/utils/risk.js` owns every risk-derived color and label
+  (Healthy < 40 / Elevated < 70 / Critical).
+
+## Contract fields confirmed against `data_backend` (Phase 0)
+
+- `GET /status` → `run_id, vm_id, region, cpu_percent, ram_percent,
+  risk_percent, migration_count, last_downtime_seconds`
+- `GET /history?run_id=…` → `migrations` newest-first; each row:
+  `run_id, timestamp, from_vm_id, to_vm_id, triggered_by, risk_percent,
+  downtime_seconds, status, checkpoint_key, checkpoint_index, resumed_index,
+  provision_market, timeline, completed_at` — `timeline` is a JSON string of the
+  step list.
+- `POST /interruption` → `run_id, from_vm_id, to_vm_id, migration_id, status,
+  checkpoint_key, downtime_seconds, timeline` — `timeline` (list of
+  `{step, name, at_utc, elapsed_ms, …}`) **was added** to the response model;
+  strictly additive, no existing field renamed or removed.

@@ -1,43 +1,46 @@
-// ChronoNet API client — axios instance pointed at the FastAPI hub.
-//
-// Base URL comes from VITE_API_BASE_URL (Vite env, .env or shell) and only
-// falls back to the local dev backend when unset — never hardcoded in JS.
-// The backend runs CORS with allow_origins="*" by default, so direct
-// cross-origin calls work in dev and in static production.
-//
-// Endpoints (contracts in shared/contracts.md):
-//   GET  /status        shape #2
-//   GET  /history       chrononet-migrations rows (newest first)
-//   POST /interruption  shape #3 (RiskEvent) -> migration summary
-import axios from 'axios';
+const DEFAULT_BASE = "http://127.0.0.1:8000";
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8000';
-
-const configured = (import.meta.env.VITE_API_BASE_URL || '').trim();
-const BASE_URL = configured.replace(/\/+$/, '') || DEFAULT_BASE_URL;
-
-const client = axios.create({
-  baseURL: BASE_URL,
-  timeout: 30_000,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-/** GET /status — current run/VM state + metrics (contract shape #2). */
-export async function getStatus() {
-  const { data } = await client.get('/status');
-  return data;
+export function resolveApiBase() {
+  return (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
 }
 
-/** GET /history?run_id= — migration history (chrononet-migrations rows). */
-export async function getHistory(run_id) {
-  const { data } = await client.get('/history', { params: { run_id } });
-  return data;
+async function parse(resp) {
+  const text = await resp.text();
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
+  if (!resp.ok) {
+    const detail = body && typeof body.detail === "string" ? body.detail : `${resp.status} ${resp.statusText}`;
+    throw new Error(`ChronoNet API ${resp.status}: ${detail}`);
+  }
+  return body;
 }
 
-/** POST /interruption — inject a high-risk event (contract shape #3). */
-export async function triggerInterruption(payload) {
-  const { data } = await client.post('/interruption', payload);
-  return data;
+// GET /status — contract shape #2
+export async function fetchStatus(base = resolveApiBase()) {
+  const resp = await fetch(`${base}/status`);
+  return parse(resp);
 }
 
-export default client;
+// GET /history?run_id=... — newest first; requires the run_id query param.
+export async function fetchHistory(runId, base = resolveApiBase()) {
+  const url = `${base}/history?run_id=${encodeURIComponent(runId)}`;
+  const resp = await fetch(url);
+  return parse(resp);
+}
+
+// POST /interruption (shape #3). Returns the migration summary incl. timeline.
+export async function triggerInterruption(payload, triggeredBy, base = resolveApiBase()) {
+  const resp = await fetch(`${base}/interruption`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-ChronoNet-Trigger": triggeredBy,
+    },
+    body: JSON.stringify(payload),
+  });
+  return parse(resp);
+}

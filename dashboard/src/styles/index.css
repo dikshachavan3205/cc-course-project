@@ -1,108 +1,95 @@
-/*
- * Entry stylesheet — imports design tokens, fontsource fonts,
- * Tailwind layers, and base element styles.
- */
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/600.css";
+@import "@fontsource/space-grotesk/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "./tokens.css";
 
-/* tokens (single source of truth) */
-@import './tokens.css';
-
-/* fontsource — offline, no CDN */
-@import '@fontsource/space-grotesk/500.css';
-@import '@fontsource/space-grotesk/600.css';
-@import '@fontsource/space-grotesk/700.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-
-/* tailwind layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── base element reset ─────────────────────────────────────────────────── */
 @layer base {
-  html {
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    line-height: var(--leading-normal);
-    color: var(--text-primary);
-    background: var(--bg-base);
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  html,
+  body,
+  #root {
+    height: 100%;
   }
 
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
+  body {
+    @apply bg-base text-primary font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.45;
   }
 
-  /* numeric readouts: force monospace font everywhere, with tabular figures
-     so columns and tickers lock to a stable width (no jitter as digits
-     change). */
-  .mono,
-  [data-mono],
-  table td,
-  table th,
-  .font-mono {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+  button {
+    cursor: pointer;
   }
 
-  /* interactive elements must show WHERE they are — keyboard focus gets a
-     visible ring in --text-primary (never the invisible default outline,
-     and never the risk accents). */
   :focus-visible {
     outline: 2px solid var(--text-primary);
     outline-offset: 2px;
+    border-radius: 2px;
   }
 
-  /* grid children must be allowed to shrink (charts, wide tables) so a
-     375px viewport never pushes the page wider than a viewport width */
-  .grid > * {
-    min-width: 0;
+  ::selection {
+    background: rgba(224, 168, 77, 0.35);
   }
 
-  /* respect prefers-reduced-motion: skip load-in arcs and value transitions
-     straight to their end state */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(77, 114, 143, 0.55);
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-sm border border-border-mid/30 bg-surface/70;
+  }
+
+  .panel-label {
+    @apply font-sans text-xs font-medium lowercase;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .num {
+    @apply font-mono;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hairline {
+    @apply border border-border-mid/30;
+  }
+
+  .arc-fill-once {
+    animation: arc-fill 1s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes arc-fill {
+    from {
+      stroke-dashoffset: var(--arc-length);
     }
   }
 }
 
-/* ── the two sanctioned risk-utility classes (history status pills) ─────── */
-@layer components {
-  .bg-risk-low    { background-color: var(--risk-low); }
-  .bg-risk-high   { background-color: var(--risk-high); }
-
-  /* hairline panel — used by every data panel in the layout */
-  .panel {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-hairline);
-    border-radius: var(--radius-data);
-  }
-
-  /* panel header label — Space Grotesk, muted, console-style tracking */
-  .panel-label {
-    color: var(--text-muted);
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    font-weight: 500;
-  }
-
-  /* prominent panel — risk meter card + trigger button only */
-  .panel-prominent {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-hairline);
-    border-radius: var(--radius-prominent);
-    box-shadow: var(--glow-risk);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
