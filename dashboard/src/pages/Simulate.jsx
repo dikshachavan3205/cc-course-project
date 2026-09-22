@@ -23,6 +23,7 @@ export default function Simulate() {
         vm_id: status?.vm_id || "vm-local-dev",
         risk_percent: 100.0,
         threshold_exceeded: true,
+        timestamp: new Date().toISOString(),
       },
       source,
     );

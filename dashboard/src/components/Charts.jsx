@@ -103,6 +103,7 @@ function LiveDot() {
 
 export function RiskArc({ risk, size = 200 }) {
   const pct = Math.max(0, Math.min(100, Number.isFinite(risk) ? risk : 0));
+  const frac = pct / 100;
   const color = getRiskColor(pct);
   const label = getRiskLabel(pct);
 
