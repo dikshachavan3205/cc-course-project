@@ -15,7 +15,7 @@ const ChronoContext = createContext(null);
 
 const MAX_FAILURES = 2;
 const HISTORY_MS = 10_000;
-const SERIES_CAP = 600; // ~30 min at the default 3s poll
+const SERIES_CAP = 600; // ~50 min at the default 5s poll
 
 const readLs = (key) => {
   try {
@@ -34,7 +34,7 @@ const writeLs = (key, value) => {
 
 export function ChronoProvider({ children }) {
   const [apiBase, setApiBase] = useState(() => readLs("chrono.apiBase") || resolveApiBase());
-  const [pollMs, setPollMs] = useState(() => Number(readLs("chrono.pollMs")) || 3000);
+  const [pollMs, setPollMs] = useState(() => Number(readLs("chrono.pollMs")) || 5000);
   const [demo, setDemoRaw] = useState(() => readLs("chrono.demo") === "1");
 
   const [status, setStatus] = useState(null);
