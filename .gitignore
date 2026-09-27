@@ -5,9 +5,7 @@ node_modules/
 venv/
 .venv/
 *.log
-prediction/dataset/raw/
-prediction/dataset/processed/
-prediction/model/*.pkl
+prediction/dataset/raw/*.json
 testing/test_results/run_logs/*
 app/checkpoints/
 dashboard/dist/
