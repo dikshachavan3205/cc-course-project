@@ -9,3 +9,4 @@ prediction/dataset/raw/*.json
 testing/test_results/run_logs/*
 app/checkpoints/
 dashboard/dist/
+*.timestamp-*.mjs

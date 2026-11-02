@@ -1,5 +1,7 @@
 """Shared constants: bucket names, table names, thresholds."""
 
+# PLACEHOLDER: unreachable by the current model (outputs ~3-25%).
+# Recalibrated in Phase 2 (prediction) and updated here.
 RISK_THRESHOLD = 0.8
 S3_CHECKPOINT_BUCKET = "chrononet-checkpoints"
 DYNAMODB_TABLE_VM_STATE = "chrononet-vm-state"
@@ -9,9 +11,14 @@ AWS_REGION = "ap-south-1"          # set to your team's actual region
 
 RISK_THRESHOLD_WARN = 0.5          # optional: earlier "elevated risk" warning for dashboard
 
+# Migrate only after this many consecutive readings at/above RISK_THRESHOLD,
+# then wait MIGRATION_COOLDOWN_SECONDS before another migration can fire.
+RISK_CONSECUTIVE_READINGS = 3
+MIGRATION_COOLDOWN_SECONDS = 300
+
 S3_CHECKPOINT_PREFIX = "checkpoints"                # key pattern: checkpoints/{run_id}/{timestamp}.json
 
-DYNAMODB_TABLE_PREDICTIONS = "chrononet-predictions"  # optional: log every risk score, not just migrations
+DYNAMODB_TABLE_PREDICTIONS = "chrononet-predictions"  # logs every risk score, not just migrations
 
 SNS_TOPIC_NAME = "chrononet-alerts"
 
@@ -25,5 +32,3 @@ METRICS_POLL_INTERVAL_SECONDS = 15
 DASHBOARD_POLL_INTERVAL_SECONDS = 5
 
 INSTANCE_TYPE = "t3.micro"
-
-AWS_REGION = "ap-south-1"

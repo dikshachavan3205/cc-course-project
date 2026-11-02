@@ -28,7 +28,15 @@ progress while it hosted the run.
 | attribute    | last_processed_index    | N | checkpoint tracking
 | attribute    | last_checkpoint_timestamp | S | checkpoint tracking (ISO8601)
 | attribute    | last_checkpoint_key     | S | checkpoint tracking (S3 object key)
+| attribute    | instance_type         | S | e.g. t3.micro
+| attribute    | market                | S | spot / ondemand
+| attribute    | network_mbps          | N | written by on-instance agent
+| attribute    | instance_age_minutes  | N | written by on-instance agent
+| attribute    | interruption_notice   | BOOL | set by agent when IMDS notice arrives
+| attribute    | resumed_index         | N | index this instance resumed from
+| attribute    | launched_at           | S | ISO8601
 | attribute    | updated_at            | S | ISO8601
+
 
 ## chrononet-migrations
 One row per migration event per run, enabling migration history (`/history`).
@@ -45,3 +53,24 @@ One row per migration event per run, enabling migration history (`/history`).
 | attribute    | status          | S | started / completed / failed
 | attribute    | checkpoint_key  | S | S3 key the new instance resumes from
 | attribute    | completed_at    | S | ISO8601 (optional, set via complete_migration)
+
+
+## chrononet-predictions
+One row per risk prediction, so the dashboard can chart risk over time.
+
+| Key          | Attribute | Type |
+|--------------|-----------|------|
+| HASH         | run_id            | S | constant across migrations
+| SORT (RANGE) | timestamp         | S | ISO8601
+| attribute    | instance_id       | S |
+| attribute    | instance_type     | S |
+| attribute    | risk_percent      | N |
+| attribute    | cpu_percent       | N |
+| attribute    | ram_percent       | N |
+| attribute    | network_mbps      | N |
+| attribute    | instance_age_minutes | N |
+| attribute    | price_volatility  | N |
+| attribute    | price_trend_ratio | N |
+| attribute    | savings_percent   | N |
+| attribute    | threshold_migrate | N | threshold in effect for this reading
+| attribute    | source            | S | model / imds
