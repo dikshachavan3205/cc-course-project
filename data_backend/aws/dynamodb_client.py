@@ -28,6 +28,8 @@ CLI validation:
     python -m data_backend.aws.dynamodb_client --create-tables
 """
 
+from __future__ import annotations
+
 import os
 import sys
 from datetime import datetime, timezone
@@ -68,6 +70,9 @@ class DynamoDBClient:
     VM_STATE_FIELDS = {
         "run_id", "status", "cpu_percent", "ram_percent", "risk_percent",
         "migration_count", "last_downtime_seconds",
+        # real-framework attributes (shared/contracts.md #6)
+        "instance_type", "market", "network_mbps", "instance_age_minutes",
+        "interruption_notice", "resumed_index", "launched_at",
     }
 
     def __init__(self, region: str | None = None):

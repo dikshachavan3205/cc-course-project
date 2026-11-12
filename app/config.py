@@ -16,12 +16,18 @@ if REPO_ROOT not in sys.path:
 from shared.constants import CHECKPOINT_INTERVAL_SECONDS  # noqa: E402
 
 # ── Local paths ──
-LOCAL_CHECKPOINT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "checkpoints")
+LOCAL_CHECKPOINT_DIR = os.environ.get("CHRONONET_CHECKPOINT_DIR") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "checkpoints")
 LOCAL_CHECKPOINT_FILE = os.path.join(LOCAL_CHECKPOINT_DIR, "checkpoint.json")
 
 # ── Run identity ──
 RUN_ID = os.environ.get("CHRONONET_RUN_ID", "run-local-dev")
 VM_ID = os.environ.get("CHRONONET_VM_ID", "vm-local-dev")
+
+# ── Real-instance settings (set by orchestration/user_data.py on EC2) ──
+INSTANCE_TYPE = os.environ.get("CHRONONET_INSTANCE_TYPE", "local")
+MARKET = os.environ.get("CHRONONET_MARKET", "local")          # spot | ondemand | local
+RESTORE_FROM_S3 = os.environ.get("CHRONONET_RESTORE_FROM_S3", "").lower() in {"1", "true", "yes"}
 
 # ── Workload simulation settings ──
 TOTAL_STEPS = int(os.environ.get("CHRONONET_TOTAL_STEPS", 100))

@@ -59,6 +59,7 @@ def provision_instance(
     security_group_ids: list[str] | None = None,
     instance_profile: str | None = INSTANCE_PROFILE,
     user_data: str | None = None,
+    tags: dict | None = None,
     logger=None,
     allow_real: bool = False,
 ) -> dict:
@@ -102,8 +103,19 @@ def provision_instance(
         # instance can itself write checkpoints to S3, read/write DynamoDB and
         # publish SNS alerts. Pass instance_profile=None to launch without one.
         base_kwargs["IamInstanceProfile"] = {"Name": instance_profile}
+    # Instance-initiated shutdown (the bootstrap's safety timer) must TERMINATE,
+    # not stop, so a forgotten instance never lingers (also covers On-Demand fallback).
+    base_kwargs["InstanceInitiatedShutdownBehavior"] = "terminate"
+    base_kwargs["MetadataOptions"] = {"HttpTokens": "required", "HttpEndpoint": "enabled"}  # IMDSv2
+    if tags:
+        base_kwargs["TagSpecifications"] = [{
+            "ResourceType": "instance",
+            "Tags": [{"Key": k, "Value": str(v)} for k, v in tags.items()],
+        }]
     if user_data:
-        base_kwargs["UserData"] = base64.b64encode(user_data.encode("utf-8")).decode("ascii")
+        # Pass RAW text: botocore base64-encodes UserData itself. Encoding here too
+        # would double-encode it and cloud-init would never run the script.
+        base_kwargs["UserData"] = user_data
 
     # ── Attempt 1: Spot ──
     response = None
@@ -145,3 +157,32 @@ def provision_instance(
         "instance_type": instance_type,
         "status": "running",
     }
+
+
+def pick_replacement_pool(*, region: str, old_instance_id: str, subnet_ids: list,
+                          instance_types: list, logger=None) -> tuple:
+    """
+    Choose (subnet_id, instance_type) for a replacement, preferring a DIFFERENT
+    availability zone and instance type than the instance being replaced: a
+    reclaimed Spot pool (type + AZ) is the likeliest to be reclaimed again.
+    Falls back to the first configured option when nothing differs.
+    """
+    ec2 = boto3.client("ec2", region_name=region)
+    old_az = old_type = None
+    try:
+        inst = ec2.describe_instances(InstanceIds=[old_instance_id])["Reservations"][0]["Instances"][0]
+        old_az, old_type = inst["Placement"]["AvailabilityZone"], inst["InstanceType"]
+    except Exception:  # noqa: BLE001 - old instance unknown/gone: no preference
+        pass
+
+    subnet_az = {}
+    if subnet_ids:
+        for sn in ec2.describe_subnets(SubnetIds=subnet_ids)["Subnets"]:
+            subnet_az[sn["SubnetId"]] = sn["AvailabilityZone"]
+    subnet = next((s for s in subnet_ids if subnet_az.get(s) != old_az), None) or (subnet_ids[0] if subnet_ids else None)
+    itype = next((t for t in instance_types if t != old_type), None) or instance_types[0]
+
+    if logger:
+        logger.note("pool-selected", old_az=old_az, old_type=old_type,
+                    new_az=subnet_az.get(subnet), new_type=itype, subnet_id=subnet)
+    return subnet, itype

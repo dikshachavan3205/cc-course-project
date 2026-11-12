@@ -24,6 +24,8 @@ CLI:
     S3 bucket by listing + reading it back.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -58,6 +60,11 @@ def _get_s3_client():
     return _s3_client
 
 
+def _s3_disabled() -> bool:
+    """CHRONONET_DISABLE_S3=true skips uploads (offline/local tests only)."""
+    return os.environ.get("CHRONONET_DISABLE_S3", "").lower() in {"1", "true", "yes"}
+
+
 def _ensure_checkpoint_dir():
     os.makedirs(LOCAL_CHECKPOINT_DIR, exist_ok=True)
 
@@ -72,6 +79,7 @@ def save_checkpoint(
     last_processed_index: int,
     run_id: str | None = None,
     vm_id: str | None = None,
+    state: dict | None = None,
 ) -> dict:
     """
     Writes progress locally AND (best-effort) uploads it to S3.
@@ -93,6 +101,8 @@ def save_checkpoint(
         "last_processed_index": last_processed_index,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    if state is not None:
+        checkpoint["state"] = state  # optional workload state (contracts.md #5)
 
     checkpoint_json = json.dumps(checkpoint, indent=2)
 
@@ -103,6 +113,8 @@ def save_checkpoint(
     os.replace(tmp_path, LOCAL_CHECKPOINT_FILE)
 
     # ── S3 upload (best-effort) ──
+    if _s3_disabled():
+        return checkpoint
     key = _s3_key_for(checkpoint["run_id"], checkpoint["timestamp"])
     try:
         _get_s3_client().put_object(
