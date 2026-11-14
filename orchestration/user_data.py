@@ -41,7 +41,7 @@ if [ "$LIFECYCLE" = "spot" ]; then MARKET=spot; else MARKET=ondemand; fi
 echo "[bootstrap] $INSTANCE_ID $INSTANCE_TYPE $MARKET"
 
 for i in 1 2 3; do dnf install -y git python3-pip && break; sleep 5; done
-for i in 1 2 3; do python3 -m pip install boto3 && break; sleep 5; done
+for i in 1 2 3; do python3 -m pip install boto3 psutil && break; sleep 5; done
 for i in 1 2 3; do git clone --depth 1 --branch @@REF@@ @@REPO@@ /opt/chrononet && break; sleep 5; done
 
 cat > /etc/chrononet.env <<EOF
@@ -60,6 +60,7 @@ set -a; . /etc/chrononet.env; set +a
 cd /opt/chrononet
 nohup python3 app/main.py > /var/log/chrononet-workload.log 2>&1 &
 echo "[bootstrap] workload started pid $! at $(date -u +%FT%TZ)"
+nohup python3 monitoring/instance_agent.py > /var/log/chrononet-agent.log 2>&1 &
 """
 
 

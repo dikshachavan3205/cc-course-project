@@ -2,14 +2,14 @@
 
 # PLACEHOLDER: unreachable by the current model (outputs ~3-25%).
 # Recalibrated in Phase 2 (prediction) and updated here.
-RISK_THRESHOLD = 0.8
+RISK_THRESHOLD = 0.15   # calibrated: the model outputs ~4-25%, so 80% was unreachable
 S3_CHECKPOINT_BUCKET = "chrononet-checkpoints"
 DYNAMODB_TABLE_VM_STATE = "chrononet-vm-state"
 DYNAMODB_TABLE_MIGRATIONS = "chrononet-migrations"
 
 AWS_REGION = "ap-south-1"          # set to your team's actual region
 
-RISK_THRESHOLD_WARN = 0.5          # optional: earlier "elevated risk" warning for dashboard
+RISK_THRESHOLD_WARN = 0.10          # optional: earlier "elevated risk" warning for dashboard
 
 # Migrate only after this many consecutive readings at/above RISK_THRESHOLD,
 # then wait MIGRATION_COOLDOWN_SECONDS before another migration can fire.

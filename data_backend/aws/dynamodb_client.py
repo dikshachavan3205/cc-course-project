@@ -239,6 +239,42 @@ class DynamoDBClient:
             ExpressionAttributeValues={f":v_{k}": _as_decimal(v) for k, v in fields.items()},
         )
 
+    # ---- predictions (shared/contracts.md #7) ----
+    def ensure_predictions_table(self) -> bool:
+        """Create chrononet-predictions if missing. Returns True when created."""
+        from shared.constants import DYNAMODB_TABLE_PREDICTIONS as T
+        try:
+            self._client.describe_table(TableName=T)
+            return False
+        except self._client.exceptions.ResourceNotFoundException:
+            pass
+        self._client.create_table(
+            TableName=T, BillingMode="PAY_PER_REQUEST",
+            KeySchema=[{"AttributeName": "run_id", "KeyType": "HASH"},
+                       {"AttributeName": "timestamp", "KeyType": "RANGE"}],
+            AttributeDefinitions=[{"AttributeName": "run_id", "AttributeType": "S"},
+                                  {"AttributeName": "timestamp", "AttributeType": "S"}])
+        self._client.get_waiter("table_exists").wait(TableName=T)
+        return True
+
+    def put_prediction(self, run_id: str, instance_id: str, risk_percent: float, **attrs) -> str:
+        from shared.constants import DYNAMODB_TABLE_PREDICTIONS as T
+        ts = datetime.now(timezone.utc).isoformat()
+        item = {"run_id": run_id, "timestamp": ts, "instance_id": instance_id,
+                "risk_percent": Decimal(str(round(float(risk_percent), 3)))}
+        for k, v in attrs.items():
+            if v is None:
+                continue
+            item[k] = Decimal(str(v)) if isinstance(v, (int, float)) and not isinstance(v, bool) else v
+        self._table(T).put_item(Item=item)
+        return ts
+
+    def list_predictions(self, run_id: str, limit: int = 100) -> list[dict]:
+        from shared.constants import DYNAMODB_TABLE_PREDICTIONS as T
+        resp = self._table(T).query(KeyConditionExpression=Key("run_id").eq(run_id),
+                                    ScanIndexForward=False, Limit=limit)
+        return resp.get("Items", [])
+
     def list_migrations(self, run_id: str) -> list[dict]:
         """Migration history for a run, most recent first."""
         resp = self._table(DYNAMODB_TABLE_MIGRATIONS).query(
