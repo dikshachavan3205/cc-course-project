@@ -4,6 +4,7 @@ import { PageHead } from "../components/layout.jsx";
 import { useChrono } from "../hooks/useChrono.js";
 import { fetchStatus } from "../api/client.js";
 import { fmtPct } from "../lib/time.js";
+import { RISK_MIGRATE, RISK_WARN } from "../utils/risk.js";
 
 const INTERVALS = [
   { ms: 2000, label: "2s" },
@@ -81,11 +82,10 @@ export default function Settings() {
                 key={iv.ms}
                 type="button"
                 onClick={() => setPollMs(iv.ms)}
-                className={`rounded-sm px-3 py-1.5 text-xs transition-colors ${
-                  pollMs === iv.ms
+                className={`rounded-sm px-3 py-1.5 text-xs transition-colors ${pollMs === iv.ms
                     ? "bg-elevated text-primary"
                     : "border border-border-mid/40 text-muted hover:bg-surface"
-                }`}
+                  }`}
               >
                 {iv.label}
               </button>
@@ -107,9 +107,8 @@ export default function Settings() {
               role="switch"
               aria-checked={demo}
               onClick={() => setDemo(!demo)}
-              className={`relative h-6 w-11 shrink-0 rounded-sm border transition-colors ${
-                demo ? "border-risk-medium/60 bg-risk-medium/25" : "border-border-mid/40 bg-surface"
-              }`}
+              className={`relative h-6 w-11 shrink-0 rounded-sm border transition-colors ${demo ? "border-risk-medium/60 bg-risk-medium/25" : "border-border-mid/40 bg-surface"
+                }`}
             >
               <span
                 className="absolute top-0.5 left-0.5 rounded-sm bg-primary transition-all"
@@ -134,7 +133,7 @@ export default function Settings() {
           <div>
             <dt className="text-muted">Risk thresholds (a = risk)</dt>
             <dd className="num mt-0.5 text-primary">
-              {fmtPct(40, 0)} / {fmtPct(70, 0)}
+              {fmtPct(RISK_WARN, 0)} / {fmtPct(RISK_MIGRATE, 0)}
             </dd>
           </div>
           <div>
@@ -143,7 +142,7 @@ export default function Settings() {
           </div>
           <div>
             <dt className="text-muted">Checkpoint cadence</dt>
-            <dd className="num mt-0.5 text-primary">30 steps</dd>
+            <dd className="num mt-0.5 text-primary">10 s</dd>
           </div>
         </dl>
       </Panel>

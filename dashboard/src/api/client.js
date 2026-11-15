@@ -44,3 +44,21 @@ export async function triggerInterruption(payload, triggeredBy, base = resolveAp
   });
   return parse(resp);
 }
+
+// GET /predictions?run_id=... — risk history (newest first) from chrononet-predictions.
+export async function fetchPredictions(runId, base = resolveApiBase()) {
+  const resp = await fetch(`${base}/predictions?run_id=${encodeURIComponent(runId)}`);
+  return parse(resp);
+}
+
+// GET /config — thresholds and provision mode.
+export async function fetchConfig(base = resolveApiBase()) {
+  const resp = await fetch(`${base}/config`);
+  return parse(resp);
+}
+
+// GET /checkpoint-status?run_id=... — latest live checkpoint in S3.
+export async function fetchCheckpointStatus(runId, base = resolveApiBase()) {
+  const resp = await fetch(`${base}/checkpoint-status?run_id=${encodeURIComponent(runId)}`);
+  return parse(resp);
+}

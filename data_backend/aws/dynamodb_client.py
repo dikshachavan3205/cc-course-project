@@ -239,6 +239,17 @@ class DynamoDBClient:
             ExpressionAttributeValues={f":v_{k}": _as_decimal(v) for k, v in fields.items()},
         )
 
+    def list_vm_states(self, run_id: str | None = None) -> list[dict]:
+        """All vm-state rows (small table => a scan is fine), optionally for one run."""
+        table, items, kw = self._table(DYNAMODB_TABLE_VM_STATE), [], {}
+        while True:
+            resp = table.scan(**kw)
+            items += resp.get("Items", [])
+            if "LastEvaluatedKey" not in resp:
+                break
+            kw["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+        return [i for i in items if run_id is None or i.get("run_id") == run_id]
+
     # ---- predictions (shared/contracts.md #7) ----
     def ensure_predictions_table(self) -> bool:
         """Create chrononet-predictions if missing. Returns True when created."""

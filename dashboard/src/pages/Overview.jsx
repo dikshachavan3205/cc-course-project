@@ -35,7 +35,12 @@ export default function Overview() {
     () => (history || []).find((h) => h.checkpoint_key && Number.isFinite(h.resumed_index)),
     [history],
   );
-  const cpAge = latestCp ? timeAgo(latestCp.timestamp) : "—";
+  const { liveCheckpoint } = useChrono();
+  const cpAge = latestCp
+    ? timeAgo(latestCp.timestamp)
+    : liveCheckpoint
+      ? timeAgo(liveCheckpoint.timestamp)
+      : "—";
 
   const now = Date.now();
   const recent = (history || []).slice(0, 3);
@@ -138,7 +143,13 @@ export default function Overview() {
         <StatCard
           label="Checkpoint age"
           value={cpAge}
-          sub={latestCp ? `resumed at step ${latestCp.resumed_index ?? "—"}` : "none recorded yet"}
+          sub={
+            latestCp
+              ? `resumed at step ${latestCp.resumed_index ?? "—"}`
+              : liveCheckpoint
+                ? `live · step ${liveCheckpoint.last_processed_index}`
+                : "none recorded yet"
+          }
           accent="var(--text-primary)"
           icon="bookmark"
         />

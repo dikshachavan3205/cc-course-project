@@ -47,7 +47,9 @@ from data_backend.models.schemas import (  # noqa: E402
     StatusResponse,
 )
 from orchestration.recovery_flow import run_migration  # noqa: E402
-from shared.constants import AWS_REGION, INSTANCE_TYPE  # noqa: E402
+from shared.constants import (  # noqa: E402
+    AWS_REGION, CHECKPOINT_INTERVAL_SECONDS, INSTANCE_TYPE, RISK_THRESHOLD, RISK_THRESHOLD_WARN,
+)
 
 # Optional integration: predict risk from live telemetry when the VM-state row
 # is missing or has no risk_percent yet. Guarded so the API works without ML deps.
@@ -55,6 +57,10 @@ try:
     from prediction.predict import predict_risk
 except Exception:  # pragma: no cover - ML deps optional at runtime
     predict_risk = None
+try:
+    from prediction.features import live_features
+except Exception:  # pragma: no cover
+    live_features = None
 
 
 def _env(name: str, default: str) -> str:
@@ -67,6 +73,30 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 def _allow_real_ec2() -> bool:
     return _env_bool("CHRONONET_ALLOW_REAL_EC2")
+
+
+def _provision_mode() -> str:
+    """'real' only when BOTH CHRONONET_PROVISION_MODE=real and CHRONONET_ALLOW_REAL_EC2=true."""
+    if os.environ.get("CHRONONET_PROVISION_MODE", "").lower() == "real" and _allow_real_ec2():
+        return "real"
+    return "simulate"
+
+
+def _resolve_current(run_id, vm_id):
+    """Explicit ids win; otherwise the newest live REAL instance (has a market) in vm-state."""
+    if run_id and vm_id:
+        return run_id, vm_id
+    try:
+        rows = [r for r in DynamoDBClient().list_vm_states(run_id)
+                if r.get("market") and r.get("status") in ("running", "launching", "migrating")]
+    except Exception as e:  # noqa: BLE001
+        print(f"[orchestrator] WARNING: list_vm_states failed: {type(e).__name__}: {e}")
+        rows = []
+    if rows:
+        rows.sort(key=lambda r: (r.get("status") == "running", str(r.get("launched_at") or "")), reverse=True)
+        top = rows[0]
+        return top.get("run_id") or run_id or _current["run_id"], top["instance_id"]
+    return run_id or _current["run_id"], vm_id or _current["vm_id"]
 
 
 # In-process reflection of the "current" VM for this demo hub. Durable truth
@@ -172,13 +202,18 @@ def _build_status(run_id: str, vm_id: str) -> dict:
                 age_minutes = int(
                     _normalize_number(row.get("instance_age_minutes"), default=30.0)
                     or 30.0)
-            risk_percent = round(predict_risk(
-                instance_type=INSTANCE_TYPE,
-                cpu_percent=cpu_percent,
-                ram_percent=ram_percent,
-                network_mbps=network_mbps,
-                instance_age_minutes=age_minutes,
-            ), 2)
+            itype = (row or {}).get("instance_type")
+            if itype and live_features is not None:
+                # real instance: live price features, same as the monitor loop
+                risk_percent = round(predict_risk(**live_features(itype, row)), 2)
+            else:
+                risk_percent = round(predict_risk(
+                    instance_type=INSTANCE_TYPE,
+                    cpu_percent=cpu_percent,
+                    ram_percent=ram_percent,
+                    network_mbps=network_mbps,
+                    instance_age_minutes=age_minutes,
+                ), 2)
         except Exception as e:  # noqa: BLE001
             print(f"[orchestrator] WARNING: predict_risk failed: {e}")
 
@@ -200,6 +235,9 @@ def _build_status(run_id: str, vm_id: str) -> dict:
         risk_percent=risk_percent,
         migration_count=migration_count,
         last_downtime_seconds=round(downtime, 3),
+        instance_type=(row or {}).get("instance_type"),
+        market=(row or {}).get("market"),
+        vm_status=(row or {}).get("status"),
     ).model_dump()
 
 
@@ -219,10 +257,49 @@ def get_status(
     vm_id: str = Query(default=None, description="Defaults to CHRONONET_VM_ID / vm-local-dev."),
 ):
     """Current VM state + metrics, exactly matching contract shape #2."""
-    return _build_status(
-        run_id or _current["run_id"],
-        vm_id or _current["vm_id"],
-    )
+    run_id, vm_id = _resolve_current(run_id, vm_id)
+    return _build_status(run_id, vm_id)
+
+
+@app.get("/predictions")
+def get_predictions(run_id: str = Query(default=None), limit: int = 120):
+    """Risk history for a run (newest first) from chrononet-predictions."""
+    run_id, _ = _resolve_current(run_id, None)
+    body = {"run_id": run_id, "predictions": []}
+    try:
+        body["predictions"] = [_normalize_migration(r) for r in DynamoDBClient().list_predictions(run_id, limit)]
+    except Exception as e:  # noqa: BLE001 - table may not exist until the monitor first runs
+        print(f"[orchestrator] WARNING: list_predictions failed: {type(e).__name__}: {e}")
+        body["warning"] = f"{type(e).__name__}: {e}"
+    return body
+
+
+@app.get("/instances")
+def get_instances(run_id: str = Query(default=None)):
+    """Every instance this run has used (newest first)."""
+    run_id, _ = _resolve_current(run_id, None)
+    try:
+        rows = DynamoDBClient().list_vm_states(run_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[orchestrator] WARNING: list_vm_states failed: {type(e).__name__}: {e}")
+        rows = []
+    keys = ("instance_id", "status", "instance_type", "market", "launched_at",
+            "resumed_index", "last_processed_index", "risk_percent")
+    out = [{k: _normalize_migration(r).get(k) for k in keys} for r in rows]
+    out.sort(key=lambda r: str(r.get("launched_at") or ""), reverse=True)
+    return {"run_id": run_id, "instances": out}
+
+
+@app.get("/config")
+def get_config():
+    """Thresholds and mode the dashboard should display (single source of truth)."""
+    return {
+        "risk_warn_percent": round(RISK_THRESHOLD_WARN * 100, 2),
+        "risk_migrate_percent": round(RISK_THRESHOLD * 100, 2),
+        "provision_mode": _provision_mode(),
+        "checkpoint_interval_s": int(os.environ.get("CHRONONET_CHECKPOINT_INTERVAL", 10)),
+        "region": AWS_REGION,
+    }
 
 
 @app.get("/history")
@@ -314,7 +391,7 @@ def on_interruption(
     try:
         result = run_migration(
             event=event_dict,
-            provision_mode="simulate",   # real EC2 => CHRONONET_ALLOW_REAL_EC2=true
+            provision_mode=_provision_mode(),   # real only if PROVISION_MODE=real AND ALLOW_REAL_EC2=true
             allow_real_ec2=_allow_real_ec2(),
             dry_run=False,
             triggered_by=x_chrononet_trigger or "imds",

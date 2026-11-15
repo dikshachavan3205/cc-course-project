@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { fetchHistory, fetchStatus, resolveApiBase, triggerInterruption } from "../api/client.js";
+import { fetchCheckpointStatus, fetchHistory, fetchPredictions, fetchStatus, resolveApiBase, triggerInterruption } from "../api/client.js";
 import { demoHistory, demoResult, demoSeries, demoStatus } from "../lib/demo.js";
 
 const ChronoContext = createContext(null);
@@ -42,6 +42,7 @@ export function ChronoProvider({ children }) {
   const [series, setSeries] = useState([]);
   const [connected, setConnected] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+  const [liveCheckpoint, setLiveCheckpoint] = useState(null);
   const [triggerState, setTriggerState] = useState("idle"); // idle | running | error
   const [triggerError, setTriggerError] = useState("");
 
@@ -126,6 +127,28 @@ export function ChronoProvider({ children }) {
         if (!cancelled) setHistory(body?.migrations || []);
       } catch {
         // history lagging behind status is fine; status owns connectivity
+      }
+      try {
+        // real risk history from chrononet-predictions drives the charts
+        const p = await fetchPredictions(runId, apiBase);
+        const rows = (p?.predictions || [])
+          .slice()
+          .reverse()
+          .map((r) => ({
+            t: Date.parse(r.timestamp),
+            cpu: Number(r.cpu_percent),
+            ram: Number(r.ram_percent),
+            risk: Number(r.risk_percent),
+          }));
+        if (!cancelled && rows.length) setSeries(rows.slice(-SERIES_CAP));
+      } catch {
+        // predictions table appears once the monitor loop has run
+      }
+      try {
+        const c = await fetchCheckpointStatus(runId, apiBase);
+        if (!cancelled) setLiveCheckpoint(c?.found ? c : null);
+      } catch {
+        // checkpoint status is optional
       }
     };
 
@@ -224,12 +247,13 @@ export function ChronoProvider({ children }) {
       pollMs,
       setPollMs: persistPoll,
       lastResult,
+      liveCheckpoint,
       trigger,
       triggerState,
       triggerError,
       refresh,
     }),
-    [status, history, series, connected, demo, setDemo, apiBase, persistBase, pollMs, persistPoll, lastResult, trigger, triggerState, triggerError, refresh],
+    [status, history, series, connected, demo, setDemo, apiBase, persistBase, pollMs, persistPoll, lastResult, liveCheckpoint, trigger, triggerState, triggerError, refresh],
   );
 
   return createElement(ChronoContext.Provider, { value }, children);

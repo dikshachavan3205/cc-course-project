@@ -5,6 +5,7 @@ types), so the API layer and any consumer stay in lockstep with the contract.
 """
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -20,6 +21,10 @@ class StatusResponse(BaseModel):
     risk_percent: float
     migration_count: int
     last_downtime_seconds: float
+    # additive (real framework): which kind of instance this is
+    instance_type: Optional[str] = None
+    market: Optional[str] = None
+    vm_status: Optional[str] = None
 
 
 class RiskEvent(BaseModel):

@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { getRiskColor, getRiskLabel } from "../utils/risk.js";
+import { getRiskColor, getRiskLabel, RISK_SCALE_MAX } from "../utils/risk.js";
 import { Panel, PanelLabel } from "./ui.jsx";
 import { useChrono } from "../hooks/useChrono.js";
 
@@ -103,7 +103,7 @@ function LiveDot() {
 
 export function RiskArc({ risk, size = 200 }) {
   const pct = Math.max(0, Math.min(100, Number.isFinite(risk) ? risk : 0));
-  const frac = pct / 100;
+  const frac = Math.min(1, pct / RISK_SCALE_MAX);
   const color = getRiskColor(pct);
   const label = getRiskLabel(pct);
 
