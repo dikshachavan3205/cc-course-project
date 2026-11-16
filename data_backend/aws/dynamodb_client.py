@@ -73,6 +73,8 @@ class DynamoDBClient:
         # real-framework attributes (shared/contracts.md #6)
         "instance_type", "market", "network_mbps", "instance_age_minutes",
         "interruption_notice", "resumed_index", "launched_at",
+        # sample-data demo visibility (written by the on-instance agent)
+        "sample_log_tail", "sample_log_lines", "sample_log_path",
     }
 
     def __init__(self, region: str | None = None):
