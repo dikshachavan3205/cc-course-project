@@ -4,6 +4,8 @@ The instances clone the public GitHub repo on boot, then download THESE files
 from s3://chrononet-checkpoints/bootstrap/<run_id>/ and layer them over the
 clone. That is how the sample-data demo code reaches the instances without
 changing the GitHub repo.
+(The branch already contains these files, so this step is a safety copy: the
+instance gets the exact same files whether it clones the branch or not.)
 
 Usage (from the repo root, venv active, AWS credentials set):
     python upload_overlay.py --run-id run-laptop-20261116-120000
@@ -21,6 +23,9 @@ FILES = [
     "app/main.py",
     "monitoring/instance_agent.py",
     "data_backend/aws/dynamodb_client.py",
+    "app/web_server.py",
+    "app/site_default/index.html",
+    "app/site_default/style.css",
 ]
 
 
