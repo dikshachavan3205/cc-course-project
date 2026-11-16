@@ -44,6 +44,24 @@ for i in 1 2 3; do dnf install -y git python3-pip && break; sleep 5; done
 for i in 1 2 3; do python3 -m pip install boto3 psutil && break; sleep 5; done
 for i in 1 2 3; do git clone --depth 1 --branch @@REF@@ @@REPO@@ /opt/chrononet && break; sleep 5; done
 
+# Sample-data overlay: pull this run's patched files from S3 and layer them
+# onto the cloned repo before anything starts.
+cat > /tmp/chrononet_overlay.py <<'PYEOF'
+import boto3
+s3 = boto3.client("s3", region_name="@@REGION@@")
+FILES = [
+    "app/sample_data_generator.py",
+    "app/sample_artifact.py",
+    "app/main.py",
+    "monitoring/instance_agent.py",
+    "data_backend/aws/dynamodb_client.py",
+]
+for rel in FILES:
+    s3.download_file("@@BUCKET@@", f"bootstrap/@@RUN_ID@@/{rel}", f"/opt/chrononet/{rel}")
+print("[overlay] sample-data files applied")
+PYEOF
+for i in 1 2 3 4 5; do python3 /tmp/chrononet_overlay.py && break; sleep 10; done
+
 cat > /etc/chrononet.env <<EOF
 CHRONONET_RUN_ID=@@RUN_ID@@
 CHRONONET_VM_ID=$INSTANCE_ID
@@ -75,6 +93,8 @@ def build_user_data(*, run_id: str, repo_url: str = DEFAULT_CONFIG["repo_url"],
             .replace("@@REF@@", shlex.quote(repo_ref))
             .replace("@@REPO@@", shlex.quote(repo_url))
             .replace("@@RUN_ID@@", shlex.quote(run_id))
+            .replace("@@REGION@@", AWS_REGION)
+            .replace("@@BUCKET@@", S3_CHECKPOINT_BUCKET)
             .replace("@@STEPS@@", str(int(total_steps)))
             .replace("@@DELAY@@", str(float(step_delay)))
             .replace("@@INTERVAL@@", str(int(checkpoint_interval))))
