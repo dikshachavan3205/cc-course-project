@@ -2,7 +2,8 @@
 
 On boot the instance: schedules a safety shutdown, reads its own identity from
 IMDSv2, installs git/python/boto3, clones the repo, and starts app/main.py with
-CHRONONET_RESTORE_FROM_S3=true so it resumes from the latest S3 checkpoint.
+CHRONONET_RESTORE_FROM_S3=true so it resumes from the latest S3 checkpoint,
+and serves the demo web page (app/web_server.py) on port 80.
 
 NOTE: the instance clones the PUBLIC GitHub repo, so push your code to `main`
 before launching. Run parameters are stored in S3 (runs/<run_id>/config.json)
@@ -47,6 +48,7 @@ for i in 1 2 3; do git clone --depth 1 --branch @@REF@@ @@REPO@@ /opt/chrononet 
 # Sample-data overlay: pull this run's patched files from S3 and layer them
 # onto the cloned repo before anything starts.
 cat > /tmp/chrononet_overlay.py <<'PYEOF'
+import os
 import boto3
 s3 = boto3.client("s3", region_name="@@REGION@@")
 FILES = [
@@ -55,9 +57,14 @@ FILES = [
     "app/main.py",
     "monitoring/instance_agent.py",
     "data_backend/aws/dynamodb_client.py",
+    "app/web_server.py",
+    "app/site_default/index.html",
+    "app/site_default/style.css",
 ]
 for rel in FILES:
-    s3.download_file("@@BUCKET@@", f"bootstrap/@@RUN_ID@@/{rel}", f"/opt/chrononet/{rel}")
+    dest = f"/opt/chrononet/{rel}"
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    s3.download_file("@@BUCKET@@", f"bootstrap/@@RUN_ID@@/{rel}", dest)
 print("[overlay] sample-data files applied")
 PYEOF
 for i in 1 2 3 4 5; do python3 /tmp/chrononet_overlay.py && break; sleep 10; done
@@ -79,6 +86,9 @@ cd /opt/chrononet
 nohup python3 app/main.py > /var/log/chrononet-workload.log 2>&1 &
 echo "[bootstrap] workload started pid $! at $(date -u +%FT%TZ)"
 nohup python3 monitoring/instance_agent.py > /var/log/chrononet-agent.log 2>&1 &
+# Demo web page on port 80 (shows this instance's ID + current step).
+nohup python3 app/web_server.py > /var/log/chrononet-web.log 2>&1 &
+echo "[bootstrap] web page started on port 80"
 """
 
 
