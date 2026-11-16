@@ -32,6 +32,7 @@ from checkpoint_manager import (
     save_checkpoint,
 )
 import instance_state
+import sample_artifact
 import workload_state
 
 _shutdown_requested = False
@@ -78,6 +79,7 @@ def run_workload():
         state = workload_state.initial_state()
         print("[main] No checkpoint found — starting fresh from step 0.")
 
+    sample_artifact.restore(RUN_ID)
     instance_state.register(RUN_ID, VM_ID, start_index,
                             instance_type=INSTANCE_TYPE, market=MARKET)
     print(f"[main] vm={VM_ID} type={INSTANCE_TYPE} market={MARKET} "
@@ -96,17 +98,20 @@ def run_workload():
         if time.time() - last_checkpoint_time >= CHECKPOINT_INTERVAL_SECONDS:
             cp = save_checkpoint(done, state=state)
             _record(cp)
+            sample_artifact.record(done, state["checksum"])
             print(f"[main] Checkpoint saved: index={done} checksum={state['checksum'][:12]}")
             last_checkpoint_time = time.time()
 
         if _shutdown_requested:
             cp = save_checkpoint(done, state=state)
             _record(cp)
+            sample_artifact.record(done, state["checksum"])
             print(f"[main] Final checkpoint saved before shutdown: index={done}")
             sys.exit(0)
 
     cp = save_checkpoint(TOTAL_STEPS, state=state)
     _record(cp)
+    sample_artifact.record(TOTAL_STEPS, state["checksum"])
     expected = workload_state.expected_checksum(TOTAL_STEPS)
     verdict = "MATCH" if state["checksum"] == expected else "MISMATCH"
     print(f"[main] Workload complete. Final checkpoint saved. "
