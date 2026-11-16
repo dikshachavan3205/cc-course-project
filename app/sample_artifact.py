@@ -78,6 +78,12 @@ def record(step_index: int, checksum: str, run_id: str | None = None,
         for name, src in (("sample_output.log", LOG_FILE),
                           ("sample_data_generator.py", GENERATOR)):
             _client().upload_file(src, S3_CHECKPOINT_BUCKET, f"{_prefix(run_id)}/{name}")
+        # web page files travel with the run too (served by app/web_server.py)
+        site_dir = os.path.join(SAMPLE_DIR, "site")
+        for name in ("index.html", "style.css"):
+            src = os.path.join(site_dir, name)
+            if os.path.exists(src):
+                _client().upload_file(src, S3_CHECKPOINT_BUCKET, f"{_prefix(run_id)}/site/{name}")
         print(f"[sample] log + script -> s3://{S3_CHECKPOINT_BUCKET}/{_prefix(run_id)}/ "
               f"({line[:60]}...)", flush=True)
     except Exception as e:  # noqa: BLE001
