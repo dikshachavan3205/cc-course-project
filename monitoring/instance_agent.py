@@ -80,6 +80,15 @@ def main() -> None:
         try:
             notice = check_notice(token)
             fields = sampler.sample()
+            try:  # sample-data visibility: report the artifact this instance holds
+                from app.sample_artifact import LOG_FILE, line_count, tail
+                lines = tail(1)
+                if lines:
+                    fields["sample_log_tail"] = lines[-1][:400]
+                fields["sample_log_lines"] = line_count()
+                fields["sample_log_path"] = LOG_FILE
+            except Exception:  # noqa: BLE001
+                pass
             if notice:
                 fields["interruption_notice"] = True
                 print(f"[agent] NOTICE: {notice}", flush=True)
